@@ -123,7 +123,7 @@ If needed, the `-f` flag can be forwarded through to tomb by passing it to the `
 ./tomb.sh unpack -f
 ```
 
-### tomb.sh repack
+#### tomb.sh repack
 
 This command will launch a new docker container, open the tomb volume internally, and copy the current contents of the host `TOMB_OUTPUT_DIR` directory back into the open tomb volume. Copying uses `rsync` with `--delete` any files which were removed from `TOMB_OUTPUT_DIR` will also be removed from the open tomb volume contents. It will then close the tomb volume, delete the contents of `TOMB_OUTPUT_DIR`, and exit the docker container. This way all changes are persisted back to the tomb volume. Each step is performed sequentially and an error will cause the entire sequence to bail, so for example if we are unable to successfully close the tomb volume the the contents of `TOMB_OUTPUT_DIR` will not be deleted.
 
