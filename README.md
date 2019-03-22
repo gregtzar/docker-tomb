@@ -2,7 +2,7 @@
 
 A [docker](https://www.docker.com) wrapper for the the Linux-based [Tomb encryption library](https://www.dyne.org/software/tomb) aimed at enabling functional cross platform support for the [Tomb library](https://github.com/dyne/Tomb) and container format.
 
-**This is a work in progress and is not yet fully stable or secure**
+**This is a work in progress and while functional it is not yet fully stable or secure.**
 
 # Requirements
 
