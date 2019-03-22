@@ -10,9 +10,19 @@ This strategy should work on MacOS, Windows, Linux, and any host OS where Docker
 
 # Container Setup
 
-You can build the container by running the following command from the root directory of this repo: `docker build -t tomb .`
+You can build the container by running the following command from the root directory of this repo:
 
-You can confirm the setup by first opening an interactive bash prompt in the new container, `docker run -it --rm tomb /bin/bash`, and from there executing the `tomb -v` command. Use the `exit` command to leave the container.
+```bash
+docker build -t tomb .
+```
+
+You can confirm the setup by first opening an interactive bash prompt in the new container and from there confirm the tomb version and exit the container.
+
+```bash
+docker run -it --rm tomb /bin/bash
+tomb -v
+exit
+```
 
 ### Security Notes
 
@@ -40,55 +50,110 @@ Once you understand the concept of docker bind mounts you will be able to run to
 
 First launch an interactive bash prompt in a temporary instance of the container, and bind-mount a working directory from the host machine where we can output the new tomb volume.
 
-This will mount the `/tmp/tomb-output` directy on the host to the location of `/tomb-output` inside the docker container instance. **Note**: The `/tmp/tomb-output` directory must already exist on the host.
+This will mount the `/tmp/tomb-gen` directy on the host to the location of `/tomb-gen` inside the docker container instance. **Note**: The `/tmp/tomb-gen` directory must already exist on the host.
 
 ```bash
 docker run -it --rm --privileged \
-	--mount type=bind,source=/tmp/tomb-output,target=/tomb-output \
+	--mount type=bind,source=/tmp/tomb-gen,target=/tomb-gen \
 	tomb /bin/bash
 ```
 
 Now from the interative prompt inside the docker continer instance creating a new tomb volume is textbook. **Note**: If you get an error about swap partitions during the `forge` command, this is a host issue and not a container issue. You need to disable swapping on the host if you want to fix it, or use `-f` to forge ahead anyways.
 
 ```bash
-cd /tomb-output
+cd /tomb-gen
 tomb dig -s 100 secret.tomb
 tomb forge secret.tomb.key
 tomb lock secret.tomb -k secret.tomb.key
 ```
 
-Now the host `/tmp/tomb-output` directory contains a new `secret.tomb` volume and `secret.tomb.key` key. Use `exit` to close the tomb container and the new files will remain on the host.
+Now the host `/tmp/tomb-gen` directory contains a new `secret.tomb` volume and `secret.tomb.key` key. Use `exit` to close the tomb container and the new files will remain on the host.
 
-### Open and Close a Tomb Volume
+### Direct Mount a Tomb Volume
 
 This example will use the volume and key we created in the previous example but can be modified to suite your needs. First, launch another interactive bash prompt in a temporary instance of the container.
 
-This will mount the host `/tmp/tomb-output` directory as well as a new `/tmp/tomb-volume` directory where the container can mount the open tomb volume back to so the host can access it.
+This will mount the host `/tmp/tomb-gen` directory as well as a new `/tmp/tomb-mount` directory where the container can mount the open tomb volume back to so the host can access it.
 
 ```bash
 docker run -it --rm --privileged \
-	--mount type=bind,source=/tmp/tomb-output,target=/tomb-output \
-	--mount type=bind,source=/tmp/tomb-volume,target=/tomb-volume,bind-propagation=shared \
+	--mount type=bind,source=/tmp/tomb-gen,target=/tomb-gen \
+	--mount type=bind,source=/tmp/tomb-mount,target=/tomb-mount,bind-propagation=shared \
 	tomb /bin/bash
 ```
 
 Now from the interative prompt inside the docker continer instance we can open the tomb volume as usual, referencing the tomb volume, key, and mount destinations bind-mounted to the host:
 
 ```bash
-tomb open /tomb-output/secret.tomb /tomb-volume -k /tomb-output/secret.tomb.key
+tomb open /tomb-gen/secret.tomb /tomb-mount -k /tomb-gen/secret.tomb.key
 ```
 
-The contents of the tomb volume are now accessible via `/tmp/tomb-volume` on the host. Be sure to successfully close the tomb volume before you exit the docker container:
+The contents of the tomb volume are now accessible via `/tmp/tomb-mount` on the host. Be sure to successfully close the tomb volume before you exit the docker container:
 
 ```bash
 tomb close
 ```
 
-# Known Issues
+### Unpack and Repack a Tomb Volume
+
+This workflow was created as a workaround for the MacOS lack of support for bind propagation which prevents us from directly mounting a tomb volume back to the host OS. The workaround is to use an additional bash script layer to copy and synchronize the tomb volume contents between a bind mounted host directory and the mounted tomb volume accesible only from inside the docker container.
+
+The `tomb.sh` script is desinged to run from the host and requires the following ENV VARS to be available to it:
+
+* `TOMB_DOCKER_IMAGE`: The name of the docker image on the host. In the examples we named it `tomb`.
+* `TOMB_VOLUME`: The full path of the tomb volume file on the host. In the example it is `/tmp/tomb-gen/secret.tomb`.
+* `TOMB_VOLUME_KEY`: The full path of the tomb volume key file on the host. In the examples it is `/tmp/tomb-gen/secret.tomb.key`.
+* `TOMB_OUTPUT_DIR`: The full path of the directory where we will unpack the tomb volume contents to on the host. In the examples it is `/tmp/tomb-out`.
+
+#### tomb.sh unpack
+
+This command will launch a new docker container, open the tomb volume internally, and copy it's contents to the host `TOMB_OUTPUT_DIR` directory which it expects to be empty. It will then close the tomb volume and exit the docker container.
+
+```bash
+export TOMB_DOCKER_IMAGE=tomb
+export TOMB_VOLUME=/tmp/tomb-gen/secret.tomb
+export TOMB_VOLUME_KEY=/tmp/tomb-gen/secret.tomb.key
+export TOMB_OUTPUT_DIR=/tmp/tomb-out
+./tomb.sh unpack
+```
+
+If needed, the `-f` flag can be forwarded through to tomb by passing it to the `unpack` command.
+
+```bash
+./tomb.sh unpack -f
+```
+
+### tomb.sh repack
+
+This command will launch a new docker container, open the tomb volume internally, and copy the current contents of the host `TOMB_OUTPUT_DIR` directory back into the open tomb volume. Copying uses `rsync` with `--delete` any files which were removed from `TOMB_OUTPUT_DIR` will also be removed from the open tomb volume contents. It will then close the tomb volume, delete the contents of `TOMB_OUTPUT_DIR`, and exit the docker container. This way all changes are persisted back to the tomb volume. Each step is performed sequentially and an error will cause the entire sequence to bail, so for example if we are unable to successfully close the tomb volume the the contents of `TOMB_OUTPUT_DIR` will not be deleted.
+
+```bash
+export TOMB_DOCKER_IMAGE=tomb
+export TOMB_VOLUME=/tmp/tomb-gen/secret.tomb
+export TOMB_VOLUME_KEY=/tmp/tomb-gen/secret.tomb.key
+export TOMB_OUTPUT_DIR=/tmp/tomb-out
+./tomb.sh repack
+```
+
+If needed, the `-f` flag can be forwarded through to tomb by passing it to the `repack` command.
+
+```bash
+./tomb.sh repack -f
+```
+
+# Known Issues and Workarounds
+
+## Swap partitions
+
+The user may get a security error from Tomb regarding the swap partitions and is prompted to either disable them or force an override. While the swap error is reported by tomb, it actually pertains to the state of the host OS and not the container OS. So the recommended `swapoff -a` command will obviously work on a Linux host but won't work on a MacOS or Windows host. In these later cases it is up to the user to disable swapping (either temporarily or permanently) on their host os should they choose to, or use the `-f` flag with tomb.
 
 ## Privileged access containers
 
 The docker container must be launched in privileged mode, otherwise the tomb library cannot mount loopback devices which it depends. Launching a docker container in privileged mode removes some of the container security sandboxing and grants anything in the container access to parts of your host system. Until docker can support loopback mounting for unprivileged users this may be the only option.
+
+## Bind propagation in MacOS
+
+MacOS does not supported bind propagation for bind mounts, which means we cannot set the `bind-propagation=shared` option on the `--mount` flag for the docker instance. So even though we can mount the tomb volume back to the bind-mounted host directory, the mount will not recurse and the directory will appear empty from the hosts point of view. I have attempted to overcome this a variety of ways including FUSE `bindfs` and symlinks and cannot find a way to expose the mounted tomb volume directory back to the host of MacOS. As a workaround I created the `tomb unpack` and `tomb repack` commands which use `rsync` to recursively copy the contents between the tomb volume mounted inside the docker container and the bind-mounted directory from the host.
 
 ## Loop device mount ghost
 
