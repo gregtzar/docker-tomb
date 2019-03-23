@@ -105,6 +105,17 @@ elif [ $cmd = repack ]; then
 		--mount type=bind,source=${TOMB_OUTPUT_DIR},target=${I_TOMB_OUTPUT_DIR} \
 		tomb /bin/bash -c "set -e; tomb open ${I_TOMB_VOLUME} ${I_TOMB_MOUNT_DIR} -k ${I_TOMB_VOLUME_KEY} ${force_opt}; rsync -azh --delete ${I_TOMB_OUTPUT_DIR}/ ${I_TOMB_MOUNT_DIR}; tomb close; rm -rf ${I_TOMB_OUTPUT_DIR}/..?* ${I_TOMB_OUTPUT_DIR}/* ${I_TOMB_OUTPUT_DIR}/.[!.]*"
 
+elif [ $cmd = drop ]; then
+
+	if [ -z "$(ls -A $TOMB_OUTPUT_DIR)" ]; then
+		log_error "Cannot drop: TOMB_OUTPUT_DIR is empty! $TOMB_OUTPUT_DIR"
+		exit 1
+	fi
+
+	docker run -it --rm --privileged \
+		--mount type=bind,source=${TOMB_OUTPUT_DIR},target=${I_TOMB_OUTPUT_DIR} \
+		tomb /bin/bash -c "set -e; rm -rf ${I_TOMB_OUTPUT_DIR}/..?* ${I_TOMB_OUTPUT_DIR}/* ${I_TOMB_OUTPUT_DIR}/.[!.]*"
+
 else
 	log_error "Invalid command: $cmd"
 fi
