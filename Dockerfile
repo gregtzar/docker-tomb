@@ -20,7 +20,8 @@ RUN apt-get update -y && \
 	zsh \
 	gnupg \
 	cryptsetup \
-	pinentry-curses
+	pinentry-curses \
+	steghide
 
 # Build and install Tomb from remote repo
 RUN curl https://files.dyne.org/tomb/Tomb-$TOMB_VERSION.tar.gz -o /tmp/Tomb-$TOMB_VERSION.tar.gz && \

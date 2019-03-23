@@ -90,7 +90,7 @@ if [ $cmd = unpack ]; then
 		--mount type=bind,source=${TOMB_VOLUME},target=${I_TOMB_VOLUME} \
 		--mount type=bind,source=${TOMB_VOLUME_KEY},target=${I_TOMB_VOLUME_KEY} \
 		--mount type=bind,source=${TOMB_OUTPUT_DIR},target=${I_TOMB_OUTPUT_DIR} \
-		tomb /bin/bash -c "set -e; tomb open ${I_TOMB_VOLUME} ${I_TOMB_MOUNT_DIR} -k ${I_TOMB_VOLUME_KEY} ${force_opt}; rsync -azvh --delete ${I_TOMB_MOUNT_DIR}/ ${I_TOMB_OUTPUT_DIR}; tomb close"
+		tomb /bin/bash -c "set -e; tomb open ${I_TOMB_VOLUME} ${I_TOMB_MOUNT_DIR} -k ${I_TOMB_VOLUME_KEY} ${force_opt}; rsync -azh --delete ${I_TOMB_MOUNT_DIR}/ ${I_TOMB_OUTPUT_DIR}; tomb close"
 
 elif [ $cmd = repack ]; then
 
@@ -103,7 +103,7 @@ elif [ $cmd = repack ]; then
 		--mount type=bind,source=${TOMB_VOLUME},target=${I_TOMB_VOLUME} \
 		--mount type=bind,source=${TOMB_VOLUME_KEY},target=${I_TOMB_VOLUME_KEY} \
 		--mount type=bind,source=${TOMB_OUTPUT_DIR},target=${I_TOMB_OUTPUT_DIR} \
-		tomb /bin/bash -c "set -e; tomb open ${I_TOMB_VOLUME} ${I_TOMB_MOUNT_DIR} -k ${I_TOMB_VOLUME_KEY} ${force_opt}; rsync -azvh --delete ${I_TOMB_OUTPUT_DIR}/ ${I_TOMB_MOUNT_DIR}; tomb close; rm -rf ${I_TOMB_OUTPUT_DIR}/..?* ${I_TOMB_OUTPUT_DIR}/* ${I_TOMB_OUTPUT_DIR}/.[!.]*"
+		tomb /bin/bash -c "set -e; tomb open ${I_TOMB_VOLUME} ${I_TOMB_MOUNT_DIR} -k ${I_TOMB_VOLUME_KEY} ${force_opt}; rsync -azh --delete ${I_TOMB_OUTPUT_DIR}/ ${I_TOMB_MOUNT_DIR}; tomb close; rm -rf ${I_TOMB_OUTPUT_DIR}/..?* ${I_TOMB_OUTPUT_DIR}/* ${I_TOMB_OUTPUT_DIR}/.[!.]*"
 
 else
 	log_error "Invalid command: $cmd"
