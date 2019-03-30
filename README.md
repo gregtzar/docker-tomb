@@ -16,6 +16,8 @@ You can build the container by running the following command from the root direc
 docker build -t tomb .
 ```
 
+Although building it yourself is preferred, you could also pull the container from my [dockerhub repo](https://hub.docker.com/r/gregtzar/tomb).
+
 You can confirm the setup by first opening an interactive bash prompt in the new container and from there confirm the tomb version and exit the container.
 
 ```bash
